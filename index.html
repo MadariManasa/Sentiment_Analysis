@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Review Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Live Review Analyzer</h1>
+        </header>
+        
+        <div class="content">
+            <div class="input-section">
+                <h2 class="section-title">Enter Product Review</h2>
+                <textarea id="reviewInput" placeholder="Type your product review here..."></textarea>
+                <div class="char-count"><span id="charCount">26</span> characters</div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="button-container">
+                <button class="analyze-btn" id="analyzeButton">Analyze Sentiment & Rating</button>
+            </div>
+            
+            <div class="loading" id="loadingIndicator">
+                <div class="spinner"></div>
+                <p>Analyzing your review...</p>
+            </div>
+            
+            <div class="results-section" id="resultsSection">
+                <h2 class="results-title">Analysis Results</h2>
+                
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>SENTIMENT</th>
+                            <th>PREDICTED RATING</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <span class="sentiment-positive" id="sentimentResult">POSITIVE</span>
+                                <div class="confidence" id="confidenceResult">100.0% confidence</div>
+                            </td>
+                            <td>
+                                <div class="rating-stars" id="ratingResult">★★★★☆</div>
+                                <div class="confidence">5.0 / 5.0</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Graph Section -->
+                <div class="graph-container">
+                    <div class="graph-title">Sentiment Analysis Results</div>
+                    <div class="sentiment-bars">
+                        <div class="bar-container">
+                            <div class="bar-label">Positive</div>
+                            <div class="bar bar-positive" id="positiveBar" style="height: 0%;">
+                                <div class="bar-value" id="positiveValue">0%</div>
+                            </div>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-label">Neutral</div>
+                            <div class="bar bar-neutral" id="neutralBar" style="height: 0%;">
+                                <div class="bar-value" id="neutralValue">0%</div>
+                            </div>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-label">Negative</div>
+                            <div class="bar bar-negative" id="negativeBar" style="height: 0%;">
+                                <div class="bar-value" id="negativeValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="confidence-meter">
+                        <div class="meter-label">
+                            <span>Analysis Confidence</span>
+                        </div>
+                        <div class="meter-container">
+                            <div class="meter-fill" id="confidenceMeter" style="width: 0%;"></div>
+                            <div class="meter-text" id="confidenceText">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sentiment-score">
+                    <div class="score-title">Detailed Analysis</div>
+                    <div class="score-grid">
+                        <div class="score-item score-positive">
+                            <div class="score-label">Positive Score</div>
+                            <div class="score-value" id="positiveScore">0%</div>
+                        </div>
+                        <div class="score-item score-neutral">
+                            <div class="score-label">Neutral Score</div>
+                            <div class="score-value" id="neutralScore">0%</div>
+                        </div>
+                        <div class="score-item score-negative">
+                            <div class="score-label">Negative Score</div>
+                            <div class="score-value" id="negativeScore">0%</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="explanation">
+                    Based on sentiment analysis
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Live Review Analyzer &copy; 2025</p>
+        </footer>
+    </div>
+
+    <script>
+        // DOM Elements
+        const reviewInput = document.getElementById('reviewInput');
+        const charCount = document.getElementById('charCount');
+        const analyzeButton = document.getElementById('analyzeButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const resultsSection = document.getElementById('resultsSection');
+        const sentimentResult = document.getElementById('sentimentResult');
+        const confidenceResult = document.getElementById('confidenceResult');
+        const ratingResult = document.getElementById('ratingResult');
+
+        // Character count update
+        reviewInput.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
+        });
+
+        // Analyze button click handler
+        analyzeButton.addEventListener('click', async function() {
+            const reviewText = reviewInput.value.trim();
+            
+            if (!reviewText) {
+                alert('Please enter a review to analyze.');
+                return;
+            }
+            
+            // Show loading indicator
+            loadingIndicator.style.display = 'block';
+            resultsSection.style.display = 'none';
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: reviewText })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const data = await response.json();
+                updateResults(data);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error analyzing review. Please try again.');
+            } finally {
+                loadingIndicator.style.display = 'none';
+            }
+        });
+
+        // Function to update graphs based on actual model probabilities
+        function updateGraphs(data) {
+            const probabilities = data.probabilities;
+            
+            // Update sentiment bars with actual probabilities
+            const positiveBar = document.getElementById('positiveBar');
+            const neutralBar = document.getElementById('neutralBar');
+            const negativeBar = document.getElementById('negativeBar');
+            const positiveValue = document.getElementById('positiveValue');
+            const neutralValue = document.getElementById('neutralValue');
+            const negativeValue = document.getElementById('negativeValue');
+            
+            // Get probabilities for each sentiment (handle different class names)
+            const positiveProb = probabilities['positive'] || probabilities['pos'] || 0;
+            const neutralProb = probabilities['neutral'] || probabilities['neu'] || 0;
+            const negativeProb = probabilities['negative'] || probabilities['neg'] || 0;
+            
+            // Animate bars to their actual probability heights
+            setTimeout(() => {
+                positiveBar.style.height = positiveProb + '%';
+                positiveValue.textContent = positiveProb.toFixed(1) + '%';
+                
+                neutralBar.style.height = neutralProb + '%';
+                neutralValue.textContent = neutralProb.toFixed(1) + '%';
+                
+                negativeBar.style.height = negativeProb + '%';
+                negativeValue.textContent = negativeProb.toFixed(1) + '%';
+            }, 100);
+            
+            // Update confidence meter
+            const confidenceMeter = document.getElementById('confidenceMeter');
+            const confidenceText = document.getElementById('confidenceText');
+            setTimeout(() => {
+                confidenceMeter.style.width = data.confidence + '%';
+                confidenceText.textContent = data.confidence + '%';
+            }, 500);
+            
+            // Update score display with actual probabilities
+            document.getElementById('positiveScore').textContent = positiveProb.toFixed(1) + '%';
+            document.getElementById('neutralScore').textContent = neutralProb.toFixed(1) + '%';
+            document.getElementById('negativeScore').textContent = negativeProb.toFixed(1) + '%';
+        }
+
+        // Function to update results in the UI
+        function updateResults(data) {
+            // Update sentiment and confidence
+            sentimentResult.textContent = data.sentiment.toUpperCase();
+            confidenceResult.textContent = `${data.confidence}% confidence`;
+            sentimentResult.className = `sentiment-${data.sentiment.toLowerCase()}`;
+            
+            // Calculate and update rating
+            const rating = calculateRating(data.sentiment, data.confidence);
+            ratingResult.innerHTML = generateStarRating(rating.stars);
+            ratingResult.nextElementSibling.textContent = `${rating.numeric} / 5.0`;
+            
+            // Update graphs with actual model probabilities
+            updateGraphs(data);
+            
+            // Show results section
+            resultsSection.style.display = 'block';
+        }
+
+        // Function to calculate rating based on sentiment and confidence
+        function calculateRating(sentiment, confidence) {
+            let stars;
+            switch(sentiment.toLowerCase()) {
+                case 'positive':
+                    stars = 4 + (confidence / 100);
+                    break;
+                case 'neutral':
+                    stars = 2.5 + (confidence / 200);
+                    break;
+                case 'negative':
+                    stars = 1 + (confidence / 100);
+                    break;
+                default:
+                    stars = 3;
+            }
+            stars = Math.max(1, Math.min(5, stars));
+            return { stars, numeric: stars.toFixed(1) };
+        }
+
+        // Function to generate star rating display
+        function generateStarRating(stars) {
+            const fullStars = Math.floor(stars);
+            const halfStar = stars % 1 >= 0.5;
+            const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+            return '★'.repeat(fullStars) + (halfStar ? '☆' : '') + '☆'.repeat(emptyStars);
+        }
+
+        // Initialize with example text
+        document.addEventListener('DOMContentLoaded', function() {
+            charCount.textContent = reviewInput.value.length;
+        });
+    </script>
+</body>
+</html>
